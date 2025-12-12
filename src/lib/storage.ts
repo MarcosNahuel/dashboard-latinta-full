@@ -1,60 +1,79 @@
-// Storage para estrategias usando Upstash Redis
-import { Redis } from '@upstash/redis';
+// Storage para estrategias usando Supabase
+import { createClient } from '@supabase/supabase-js';
 import { Strategy, initialStrategies, generateSystemPrompt } from './data';
 
-// Crear cliente Redis (configurar variables de entorno en Vercel)
-const redis = process.env.UPSTASH_REDIS_REST_URL
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-    })
+// Crear cliente Supabase
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY
+    )
   : null;
 
-const STRATEGIES_KEY = 'latinta:strategies';
-const UPDATED_AT_KEY = 'latinta:updatedAt';
-
-// Obtener estrategias (de Redis o iniciales)
+// Obtener estrategias (de Supabase o iniciales)
 export async function getStrategies(): Promise<Strategy[]> {
-  if (!redis) {
-    console.log('Redis no configurado, usando estrategias iniciales');
+  if (!supabase) {
+    console.log('Supabase no configurado, usando estrategias iniciales');
     return initialStrategies;
   }
 
   try {
-    const stored = await redis.get<Strategy[]>(STRATEGIES_KEY);
-    if (stored && Array.isArray(stored)) {
-      return stored;
+    const { data, error } = await supabase
+      .from('latinta_strategies')
+      .select('strategies, updated_at')
+      .eq('id', 'main')
+      .single();
+
+    if (error || !data) {
+      return initialStrategies;
     }
-    return initialStrategies;
+
+    return data.strategies as Strategy[];
   } catch (error) {
-    console.error('Error obteniendo estrategias de Redis:', error);
+    console.error('Error obteniendo estrategias de Supabase:', error);
     return initialStrategies;
   }
 }
 
 // Guardar estrategias
 export async function saveStrategies(strategies: Strategy[]): Promise<boolean> {
-  if (!redis) {
-    console.log('Redis no configurado, no se pueden guardar');
+  if (!supabase) {
+    console.log('Supabase no configurado, no se pueden guardar');
     return false;
   }
 
   try {
-    await redis.set(STRATEGIES_KEY, strategies);
-    await redis.set(UPDATED_AT_KEY, new Date().toISOString());
+    const { error } = await supabase
+      .from('latinta_strategies')
+      .upsert({
+        id: 'main',
+        strategies: strategies,
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error('Error guardando:', error);
+      return false;
+    }
     return true;
   } catch (error) {
-    console.error('Error guardando estrategias en Redis:', error);
+    console.error('Error guardando estrategias en Supabase:', error);
     return false;
   }
 }
 
 // Obtener fecha de ultima actualizacion
 export async function getUpdatedAt(): Promise<string | null> {
-  if (!redis) return null;
+  if (!supabase) return null;
 
   try {
-    return await redis.get<string>(UPDATED_AT_KEY);
+    const { data } = await supabase
+      .from('latinta_strategies')
+      .select('updated_at')
+      .eq('id', 'main')
+      .single();
+
+    return data?.updated_at || null;
   } catch {
     return null;
   }
@@ -71,6 +90,6 @@ export async function getSystemPromptResponse() {
     prompt,
     strategies: strategies.filter(s => s.isActive),
     updatedAt: updatedAt || new Date().toISOString(),
-    source: redis ? 'upstash' : 'local'
+    source: supabase ? 'supabase' : 'local'
   };
 }
