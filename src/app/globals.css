@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Card styles */
+.card {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
+}
+
+/* Button styles */
+.btn-primary {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.btn-secondary {
+  background: #374151;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: #4b5563;
+}
+
+/* Tab styles */
+.tab-button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  color: #9ca3af;
+}
+
+.tab-button:hover {
+  background: #374151;
+  color: white;
+}
+
+.tab-button.active {
+  background: #8b5cf6;
+  color: white;
+}
+
+/* Strategy card colors */
+.strategy-green { border-left-color: #22c55e; }
+.strategy-blue { border-left-color: #3b82f6; }
+.strategy-purple { border-left-color: #8b5cf6; }
+.strategy-orange { border-left-color: #f59e0b; }
+.strategy-pink { border-left-color: #ec4899; }
+.strategy-cyan { border-left-color: #06b6d4; }
+.strategy-red { border-left-color: #ef4444; }
+
+/* KPI card */
+.kpi-card {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 1.25rem;
+  min-width: 180px;
+}
+
+/* Textarea */
+textarea {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 0.75rem;
+  width: 100%;
+  resize: vertical;
+  transition: border-color 0.2s ease;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #8b5cf6;
+}
+
+/* Input */
+input[type="text"] {
+  background: transparent;
+  border: none;
+  font-weight: bold;
+  font-size: 1.125rem;
+  color: white;
+  width: 100%;
+}
+
+input[type="text"]:focus {
+  outline: none;
+}
+
+/* Preview box */
+.preview-box {
+  background: #0d1117;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
