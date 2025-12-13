@@ -96,23 +96,35 @@ export default function TestingTab() {
     setMessage('');
 
     try {
+      // Crear datos en formato application/x-www-form-urlencoded según el formato esperado por n8n
+      const formData = new URLSearchParams();
+      formData.append('message[add][0][text]', currentMessage);
+      formData.append('message[add][0][contact_id]', thread.phone);
+      formData.append('message[add][0][chat_id]', thread.id);
+      formData.append('message[add][0][talk_id]', thread.id);
+      formData.append('account[id]', 'latinta');
+      formData.append('account[subdomain]', 'latinta');
+
       const res = await fetch(WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: currentMessage,
-          phone: thread.phone,
-          name: thread.name,
-          conversationId: thread.id,
-          timestamp: new Date().toISOString()
-        }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString(),
       });
 
-      const data = await res.json();
+      let data = await res.json();
+
+      // Si la respuesta es un string JSON, parsearlo
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          // Si no se puede parsear, usar como está
+        }
+      }
 
       const agentMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: data.response || JSON.stringify(data),
+        text: data['output.respuesta'] || data.response || JSON.stringify(data),
         sender: 'agent',
         timestamp: new Date()
       };
