@@ -5,6 +5,8 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { toast } from 'sonner';
 import { kpis, monthlyData, topProducts, categories, weekdayData, discountCodes, initialStrategies, generateSystemPrompt } from '@/lib/data';
 import type { Strategy } from '@/lib/data';
+import PreciosTab from '@/components/PreciosTab';
+import TestingTab from '@/components/TestingTab';
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#22c55e', '#f59e0b', '#ec4899'];
 
@@ -19,7 +21,7 @@ const colorClasses: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<'general' | 'estrategia'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'estrategia' | 'precios' | 'testing'>('general');
   const [strategies, setStrategies] = useState<Strategy[]>(initialStrategies);
   const [expandedStrategies, setExpandedStrategies] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
@@ -167,6 +169,18 @@ export default function Dashboard() {
               >
                 🎯 Estrategia
               </button>
+              <button
+                onClick={() => setActiveTab('precios')}
+                className={`tab-button ${activeTab === 'precios' ? 'active' : ''}`}
+              >
+                💰 Precios
+              </button>
+              <button
+                onClick={() => setActiveTab('testing')}
+                className={`tab-button ${activeTab === 'testing' ? 'active' : ''}`}
+              >
+                🧪 Testing
+              </button>
             </div>
           </div>
         </div>
@@ -175,7 +189,7 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {activeTab === 'general' ? (
           <GeneralTab />
-        ) : (
+        ) : activeTab === 'estrategia' ? (
           <EstrategiaTab
             strategies={strategies}
             expandedStrategies={expandedStrategies}
@@ -190,6 +204,10 @@ export default function Dashboard() {
             copyEndpoint={copyEndpoint}
             copyPrompt={copyPrompt}
           />
+        ) : activeTab === 'precios' ? (
+          <PreciosTab />
+        ) : (
+          <TestingTab />
         )}
       </main>
     </div>
@@ -507,7 +525,7 @@ function EstrategiaTab({
               )}
             </div>
           );
-        })})
+        })}
       </div>
 
       {/* System Prompt Preview */}
