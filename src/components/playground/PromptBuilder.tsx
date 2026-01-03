@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Copy, Check, Download, RotateCcw, Sparkles, Eye, Save, Link2, ExternalLink } from 'lucide-react';
+import { Copy, Check, Download, RotateCcw, Sparkles, Eye, Save, Link2, ExternalLink, Home } from 'lucide-react';
+import Link from 'next/link';
 import PromptSection from './PromptSection';
 import ToolsDisplay from './ToolsDisplay';
 import MagicEditModal from './MagicEditModal';
@@ -340,16 +341,26 @@ Generado con Agent Playground - La Tinta Dashboard`;
       <div className="max-w-[1600px] mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--playground-accent)] to-[#ff6b6b] flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--playground-accent)] to-[#ff6b6b] flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">Agent Playground</h1>
+                <p className="text-gray-400 text-sm">
+                  Construye y modifica el System Prompt de tu agente de IA
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Agent Playground</h1>
-              <p className="text-gray-400 text-sm">
-                Construye y modifica el System Prompt de tu agente de IA
-              </p>
-            </div>
+            {/* Boton Volver al Inicio */}
+            <Link
+              href="/"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/5 border border-[var(--playground-border)] text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              <Home className="w-5 h-5" />
+              <span>Volver al Inicio</span>
+            </Link>
           </div>
         </div>
 
