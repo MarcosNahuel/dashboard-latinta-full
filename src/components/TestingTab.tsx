@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 const WEBHOOK_URL = 'https://paneln8n.traid.business/webhook/conversacionmexkommozonafit';
@@ -10,6 +10,7 @@ interface Message {
   text: string;
   sender: 'user' | 'agent';
   timestamp: Date;
+  status?: 'sending' | 'sent' | 'error';
 }
 
 interface Thread {
@@ -18,16 +19,19 @@ interface Thread {
   name: string;
   messages: Message[];
   lastMessageDate: Date;
+  pendingResponses?: number;
 }
 
 export default function TestingTab() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [newPhone, setNewPhone] = useState('');
   const [newName, setNewName] = useState('');
   const [showNewThread, setShowNewThread] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const threadsRef = useRef(threads);
 
   useEffect(() => {
     const saved = localStorage.getItem('conversationThreads');
@@ -41,8 +45,19 @@ export default function TestingTab() {
     }
   }, []);
 
+  // Mantener ref actualizado
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
+
+  // Auto-scroll al final de mensajes
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [threads, selectedThread]);
+
   const saveThreads = (updatedThreads: Thread[]) => {
     setThreads(updatedThreads);
+    threadsRef.current = updatedThreads;
     localStorage.setItem('conversationThreads', JSON.stringify(updatedThreads));
   };
 
@@ -77,13 +92,16 @@ export default function TestingTab() {
     const thread = threads.find(t => t.id === selectedThread);
     if (!thread) return;
 
+    const messageId = Date.now().toString();
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: messageId,
       text: message,
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date(),
+      status: 'sending'
     };
 
+    // Agregar mensaje inmediatamente y limpiar input
     const updatedThreads = threads.map(t =>
       t.id === selectedThread
         ? { ...t, messages: [...t.messages, userMessage], lastMessageDate: new Date() }
@@ -91,74 +109,102 @@ export default function TestingTab() {
     );
     saveThreads(updatedThreads);
 
-    setLoading(true);
     const currentMessage = message;
+    const currentThreadId = selectedThread;
+    const currentPhone = thread.phone;
     setMessage('');
+    setPendingCount(prev => prev + 1);
 
-    try {
-      // Crear datos en formato application/x-www-form-urlencoded según el formato esperado por n8n
-      const formData = new URLSearchParams();
-      formData.append('message[add][0][text]', currentMessage);
-      formData.append('message[add][0][contact_id]', thread.phone);
-      formData.append('message[add][0][chat_id]', thread.id);
-      formData.append('message[add][0][talk_id]', thread.id);
-      formData.append('account[id]', 'latinta');
-      formData.append('account[subdomain]', 'latinta');
+    // Enviar de forma asíncrona sin bloquear
+    (async () => {
+      try {
+        const formData = new URLSearchParams();
+        formData.append('message[add][0][text]', currentMessage);
+        formData.append('message[add][0][contact_id]', currentPhone);
+        formData.append('message[add][0][chat_id]', currentThreadId);
+        formData.append('message[add][0][talk_id]', currentThreadId);
+        formData.append('account[id]', 'latinta');
+        formData.append('account[subdomain]', 'latinta');
 
-      const res = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData.toString(),
-      });
+        const res = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formData.toString(),
+        });
 
-      let data = await res.json();
+        let data = await res.json();
 
-      // Si la respuesta es un string JSON, parsearlo
-      if (typeof data === 'string') {
-        try {
-          data = JSON.parse(data);
-        } catch (e) {
-          // Si no se puede parsear, usar como está
+        if (typeof data === 'string') {
+          try {
+            data = JSON.parse(data);
+          } catch (e) {
+            // usar como está
+          }
         }
+
+        // Manejar respuesta - puede ser string, array, o objeto con array
+        let responses: string[] = [];
+
+        if (data['output.respuesta']) {
+          // Respuesta directa del webhook
+          const resp = data['output.respuesta'];
+          responses = Array.isArray(resp) ? resp : [resp];
+        } else if (data.output?.respuesta) {
+          // Respuesta con estructura output.respuesta
+          const resp = data.output.respuesta;
+          responses = Array.isArray(resp) ? resp : [resp];
+        } else if (data.response) {
+          responses = Array.isArray(data.response) ? data.response : [data.response];
+        } else if (Array.isArray(data)) {
+          // Array de mensajes directo
+          responses = data.map((d: any) => d['output.respuesta'] || d.text || JSON.stringify(d));
+        } else {
+          responses = [JSON.stringify(data)];
+        }
+
+        // Usar threadsRef para obtener el estado más reciente
+        const currentThreads = threadsRef.current;
+
+        // Crear un mensaje por cada respuesta del array
+        const agentMessages: Message[] = responses.map((text, i) => ({
+          id: (Date.now() + i + 1).toString(),
+          text: text,
+          sender: 'agent' as const,
+          timestamp: new Date()
+        }));
+
+        const finalThreads = currentThreads.map(t =>
+          t.id === currentThreadId
+            ? { ...t, messages: [...t.messages, ...agentMessages], lastMessageDate: new Date() }
+            : t
+        );
+        saveThreads(finalThreads);
+
+        if (res.ok) {
+          toast.success('Respuesta recibida');
+        } else {
+          toast.error(`Error: ${res.status}`);
+        }
+      } catch (error: any) {
+        const currentThreads = threadsRef.current;
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: `Error: ${error.message}`,
+          sender: 'agent',
+          timestamp: new Date()
+        };
+
+        const finalThreads = currentThreads.map(t =>
+          t.id === currentThreadId
+            ? { ...t, messages: [...t.messages, errorMessage], lastMessageDate: new Date() }
+            : t
+        );
+        saveThreads(finalThreads);
+        toast.error('Error de conexión');
+      } finally {
+        setPendingCount(prev => Math.max(0, prev - 1));
       }
-
-      const agentMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: data['output.respuesta'] || data.response || JSON.stringify(data),
-        sender: 'agent',
-        timestamp: new Date()
-      };
-
-      const finalThreads = updatedThreads.map(t =>
-        t.id === selectedThread
-          ? { ...t, messages: [...t.messages, agentMessage], lastMessageDate: new Date() }
-          : t
-      );
-      saveThreads(finalThreads);
-
-      if (res.ok) {
-        toast.success('Respuesta recibida');
-      } else {
-        toast.error(`Error: ${res.status}`);
-      }
-    } catch (error: any) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: `Error: ${error.message}`,
-        sender: 'agent',
-        timestamp: new Date()
-      };
-
-      const finalThreads = updatedThreads.map(t =>
-        t.id === selectedThread
-          ? { ...t, messages: [...t.messages, errorMessage], lastMessageDate: new Date() }
-          : t
-      );
-      saveThreads(finalThreads);
-      toast.error('Error de conexión');
-    } finally {
-      setLoading(false);
-    }
+    })();
   };
 
   const deleteThread = (threadId: string) => {
@@ -268,25 +314,36 @@ export default function TestingTab() {
                 {selectedThreadData.messages.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">No hay mensajes</p>
                 ) : (
-                  selectedThreadData.messages.map(msg => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
+                  <>
+                    {selectedThreadData.messages.map(msg => (
                       <div
-                        className={`max-w-[70%] rounded-lg p-3 ${
-                          msg.sender === 'user'
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-700 text-gray-100'
-                        }`}
+                        key={msg.id}
+                        className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {msg.timestamp.toLocaleTimeString()}
-                        </p>
+                        <div
+                          className={`max-w-[70%] rounded-lg p-3 ${
+                            msg.sender === 'user'
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-700 text-gray-100'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                          <p className="text-xs opacity-70 mt-1">
+                            {msg.timestamp.toLocaleTimeString()}
+                            {msg.status === 'sending' && ' ⏳'}
+                          </p>
+                        </div>
                       </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+                {pendingCount > 0 && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-700/50 text-gray-400 rounded-lg p-3 text-sm animate-pulse">
+                      Esperando {pendingCount} respuesta{pendingCount > 1 ? 's' : ''}...
                     </div>
-                  ))
+                  </div>
                 )}
               </div>
 
@@ -295,17 +352,15 @@ export default function TestingTab() {
                   type="text"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !loading && sendMessage()}
-                  placeholder="Escribe un mensaje..."
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder="Escribe un mensaje... (puedes enviar varios seguidos)"
                   className="flex-1"
-                  disabled={loading}
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={loading}
                   className="btn-primary px-6"
                 >
-                  {loading ? '⏳' : '📤'}
+                  📤
                 </button>
               </div>
             </>

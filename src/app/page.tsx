@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
+import { Sparkles } from 'lucide-react';
 import { kpis, monthlyData, topProducts, categories, weekdayData, discountCodes, initialStrategies, generateSystemPrompt } from '@/lib/data';
 import type { Strategy } from '@/lib/data';
 import PreciosTab from '@/components/PreciosTab';
@@ -181,6 +183,13 @@ export default function Dashboard() {
               >
                 🧪 Testing
               </button>
+              <Link
+                href="/playground"
+                className="tab-button flex items-center gap-1.5 bg-gradient-to-r from-[#e94560] to-[#ff6b6b] text-white hover:opacity-90"
+              >
+                <Sparkles className="w-4 h-4" />
+                Playground
+              </Link>
             </div>
           </div>
         </div>
