@@ -134,32 +134,70 @@ export default function TestingTab() {
 
         let data = await res.json();
 
-        if (typeof data === 'string') {
-          try {
-            data = JSON.parse(data);
-          } catch (e) {
-            // usar como está
+        // Parsear recursivamente si viene como string JSON
+        const parseDeep = (d: any): any => {
+          if (typeof d === 'string') {
+            try {
+              return parseDeep(JSON.parse(d));
+            } catch {
+              return d;
+            }
           }
-        }
+          return d;
+        };
+        data = parseDeep(data);
 
         // Manejar respuesta - puede ser string, array, o objeto con array
         let responses: string[] = [];
 
-        if (data['output.respuesta']) {
-          // Respuesta directa del webhook
-          const resp = data['output.respuesta'];
-          responses = Array.isArray(resp) ? resp : [resp];
-        } else if (data.output?.respuesta) {
-          // Respuesta con estructura output.respuesta
-          const resp = data.output.respuesta;
-          responses = Array.isArray(resp) ? resp : [resp];
-        } else if (data.response) {
-          responses = Array.isArray(data.response) ? data.response : [data.response];
-        } else if (Array.isArray(data)) {
-          // Array de mensajes directo
-          responses = data.map((d: any) => d['output.respuesta'] || d.text || JSON.stringify(d));
-        } else {
-          responses = [JSON.stringify(data)];
+        // Extraer respuesta de diferentes estructuras posibles
+        const extractResponses = (d: any): string[] => {
+          if (!d) return [];
+
+          // Estructura: {"output":{"respuesta":[...]}}
+          if (d.output?.respuesta) {
+            const resp = d.output.respuesta;
+            return Array.isArray(resp) ? resp : [resp];
+          }
+
+          // Estructura: {"output.respuesta":[...]}
+          if (d['output.respuesta']) {
+            const resp = d['output.respuesta'];
+            return Array.isArray(resp) ? resp : [resp];
+          }
+
+          // Estructura: {"respuesta":[...]}
+          if (d.respuesta) {
+            const resp = d.respuesta;
+            return Array.isArray(resp) ? resp : [resp];
+          }
+
+          // Estructura: {"response":[...]}
+          if (d.response) {
+            return Array.isArray(d.response) ? d.response : [d.response];
+          }
+
+          // Array directo de objetos
+          if (Array.isArray(d)) {
+            return d.flatMap((item: any) => {
+              if (typeof item === 'string') return [item];
+              return extractResponses(item);
+            }).filter(Boolean);
+          }
+
+          // Si es string, usarlo directamente
+          if (typeof d === 'string') {
+            return [d];
+          }
+
+          return [];
+        };
+
+        responses = extractResponses(data);
+
+        // Fallback: si no encontramos respuestas, mostrar el JSON
+        if (responses.length === 0) {
+          responses = [JSON.stringify(data, null, 2)];
         }
 
         // Usar threadsRef para obtener el estado más reciente
